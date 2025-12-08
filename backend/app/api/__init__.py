@@ -1,3 +1,1 @@
-"""
-API router package.
-"""
+# Package for API routers.

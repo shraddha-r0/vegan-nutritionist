@@ -18,10 +18,13 @@ engine = create_engine(
 # Create session factory
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Ensure SQLite tables exist before use; no inputs, no return value.
 def init_db():
     """Creates all tables if they do not exist."""
     Base.metadata.create_all(bind=engine)
 
+# Yield a database session for request lifecycles.
+# Input: none (FastAPI injects); Output: generator yielding a SQLAlchemy Session.
 def get_db():
     """
     Dependency for FastAPI routes.

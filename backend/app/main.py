@@ -1,32 +1,28 @@
-"""
-Main FastAPI application module.
-"""
-from fastapi import FastAPI, Depends, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI
 
-from . import models, schemas, crud
-from .db import engine, get_db
-
-# Create database tables
-models.Base.metadata.create_all(bind=engine)
+from .api import meals as meals_router
+from .db import init_db
 
 app = FastAPI(
     title="Vegan Nutritionist API",
-    description="API for tracking vegan meals and nutrition",
-    version="0.1.0"
+    version="0.1.0",
+    description="API for logging meals and retrieving nutrition data.",
 )
 
-# CORS middleware configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # In production, replace with specific origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-# Health check endpoint
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}
+# Build DB tables at startup so the API can serve immediately.
+# Input: none; Output: side effect of creating tables in SQLite file if absent.
+@app.on_event("startup")
+def on_startup() -> None:
+    """Ensure database tables exist."""
+    init_db()
+
+
+# Lightweight health endpoint for uptime checks.
+# Input: none; Output: JSON {"status": "ok"} with 200.
+@app.get("/health", tags=["health"])
+def health_check():
+    return {"status": "ok"}
+
+
+app.include_router(meals_router.router)

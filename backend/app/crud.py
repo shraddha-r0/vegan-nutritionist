@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 
 from . import models, schemas
 
+# Insert a new meal record using validated Pydantic payload.
+# Input: Session plus schemas.MealCreate (dict-like), values already typed (date, time, floats).
+# Output: models.Meal ORM object refreshed from DB (includes generated id).
 def add_meal(db: Session, meal_data: schemas.MealCreate) -> models.Meal:
     """
     Add a new meal to the database.
@@ -24,6 +27,9 @@ def add_meal(db: Session, meal_data: schemas.MealCreate) -> models.Meal:
     db.refresh(db_meal)
     return db_meal
 
+# Retrieve a specific meal by primary key.
+# Input: Session and integer meal_id.
+# Output: models.Meal ORM object, or None if not found.
 def get_meal(db: Session, meal_id: int) -> Optional[models.Meal]:
     """
     Retrieve a single meal by its ID.
@@ -37,6 +43,9 @@ def get_meal(db: Session, meal_id: int) -> Optional[models.Meal]:
     """
     return db.query(models.Meal).filter(models.Meal.id == meal_id).first()
 
+# List meals with optional pagination offsets.
+# Input: Session, skip (offset >=0), limit (max rows).
+# Output: list[models.Meal] ordered by insertion (SQLite default).
 def list_meals(db: Session, skip: int = 0, limit: int = 100) -> List[models.Meal]:
     """
     List all meals with pagination.
@@ -51,6 +60,9 @@ def list_meals(db: Session, skip: int = 0, limit: int = 100) -> List[models.Meal
     """
     return db.query(models.Meal).offset(skip).limit(limit).all()
 
+# Fetch meals that fall within an inclusive date range, ordered by date/time.
+# Input: Session; start_date/end_date are datetime.date; skip/limit for paging.
+# Output: list[models.Meal] sorted ascending by date then time.
 def get_meals_by_date_range(
     db: Session, 
     start_date: date, 

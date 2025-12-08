@@ -8,6 +8,8 @@ import sys
 DB_PATH = Path(__file__).parent /  "nutrition.db"
 CSV_PATH = Path(__file__).parent /  "sample_data_meal.csv"
 
+# Open a SQLite connection to the nutrition database file.
+# Input: none; Output: sqlite3.Connection or None on failure.
 def create_connection():
     """Create a database connection to the SQLite database."""
     conn = None
@@ -18,6 +20,8 @@ def create_connection():
         print(e)
     return conn
 
+# Convert a DD-Mon-YYYY string into a date object; return None on failure.
+# Input: date_str like '09-Dec-2024'; Output: datetime.date or None.
 def parse_date(date_str):
     """Parse date string in format 'DD-Mon-YYYY' to date object."""
     try:
@@ -26,6 +30,8 @@ def parse_date(date_str):
         print(f"Error parsing date '{date_str}': {e}")
         return None
 
+# Convert a 12-hour time string to 24-hour HH:MM:SS; return None on failure.
+# Input: time_str like '9:00 AM'; Output: '09:00:00' string or None.
 def parse_time(time_str):
     """Parse time string in format 'HH:MM AM/PM' to 'HH:MM:SS' string."""
     try:
@@ -36,6 +42,9 @@ def parse_time(time_str):
         print(f"Error parsing time '{time_str}': {e}")
         return None
 
+# Load the sample CSV and insert rows into the meals table, replacing existing rows.
+# Input: tab-delimited CSV at CSV_PATH with headers matching sample_data_meal.csv.
+# Output: side effect of deleting existing rows, inserting parsed rows; prints status/errors.
 def import_meals():
     """Import meals from CSV to SQLite database."""
     conn = create_connection()
