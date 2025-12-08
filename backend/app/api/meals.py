@@ -24,21 +24,6 @@ def create_meal(meal: schemas.MealCreate, db: Session = Depends(get_db)):
     return crud.add_meal(db, meal)
 
 
-# Retrieve one meal by its database ID.
-# Input: path param meal_id (int).
-# Output: Meal schema JSON; 404 when missing.
-@router.get(
-    "/{meal_id}",
-    response_model=schemas.Meal,
-    summary="Get a meal by ID",
-)
-def read_meal(meal_id: int, db: Session = Depends(get_db)):
-    meal = crud.get_meal(db, meal_id)
-    if not meal:
-        raise HTTPException(status_code=404, detail="Meal not found")
-    return meal
-
-
 # List meals with paging controls.
 # Input: query params skip>=0, limit>0<=1000.
 # Output: list of Meal schema JSON objects.
@@ -78,3 +63,18 @@ def meals_by_date_range(
         limit=limit,
     )
     return meals
+
+
+# Retrieve one meal by its database ID.
+# Input: path param meal_id (int).
+# Output: Meal schema JSON; 404 when missing.
+@router.get(
+    "/{meal_id}",
+    response_model=schemas.Meal,
+    summary="Get a meal by ID",
+)
+def read_meal(meal_id: int, db: Session = Depends(get_db)):
+    meal = crud.get_meal(db, meal_id)
+    if not meal:
+        raise HTTPException(status_code=404, detail="Meal not found")
+    return meal
