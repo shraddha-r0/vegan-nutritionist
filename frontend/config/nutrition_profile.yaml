@@ -1,0 +1,161 @@
+# User Nutrition Profile
+user:
+  name: "Shraddha"
+  age: 29
+  gender: "female"
+  weight_kg: 60
+  height_cm: 173
+  diet_type: "Vegan (7 years of experience)"
+  activity_level: "moderate"  # sedentary, light, moderate, active, very_active
+  dietary_preferences:
+    - "vegan"
+    - "whole_foods"
+    - "minimally_processed"
+    - "occasional_takeout"
+  allergies: 
+    - "citrus fruits"
+    - "animal products"
+  restrictions:
+    - "spice_sensitive"
+    - "prefers_low_heat_dishes"
+  health_considerations:
+    - "focus_on_gut_health"
+    - "inflammation_aware"
+    - "prioritizes_sleep"
+
+goals:
+  primary_goal: "maintain_balanced_diet"
+  specific_goals:
+    - "Maintain balanced and nutrient-rich vegan diet"
+    - "Focus on whole foods and plant-based proteins"
+    - "Track macronutrients and micronutrients"
+    - "Monitor inflammation and gut health"
+    - "Maintain energy for active lifestyle"
+  
+  # Macronutrient Targets
+  daily_targets:
+    calories: 
+      target: 2100  # 2000-2200 range
+      adjust_based_on_activity: true
+    protein: 
+      target_g: 72  # 1.2g/kg of body weight
+      target_range: "60-90g"
+    carbs: 
+      focus: "high-fiber, whole food sources"
+    fats: 
+      focus: "healthy fats from plants"
+    fiber:
+      target_g: "25-35"
+  
+  # Micronutrient Focus
+  micronutrient_focus:
+    iron:
+      sources: ["lentils", "tofu", "tempeh", "leafy_greens"]
+      notes: "Avoid coffee with iron-rich meals"
+    omega3:
+      sources: ["chia_seeds", "flax_seeds", "walnuts"]
+    calcium:
+      sources: ["fortified_notmilk", "chia_seeds", "tofu", "leafy_greens"]
+    b12:
+      note: "Supplementation recommended"
+    vitamin_c:
+      note: "Included to enhance iron absorption"
+
+  weekly_goals:
+    - "Eat at least 5 servings of vegetables daily"
+    - "Include a protein source with each meal"
+    - "Prepare meals in advance when possible"
+    - "Stay hydrated with water and herbal teas"
+
+daily_routine:
+  breakfast:
+    typical_meal: "Large bowl of oats with chia seeds, NotMilk, nut butter, and banana/seeds"
+    beverage: "Coffee with NotMilk and coconut sugar"
+  
+  lunch:
+    description: "Balanced meal with plant proteins, vegetables, grains, and healthy fats"
+    common_proteins: ["tempeh", "tofu", "lentils"]
+    common_sides: ["brown_rice", "pasta", "quinoa", "vegetables"]
+    fats: ["avocado", "tahini", "olive_oil"]
+  
+  dinner:
+    description: "Similar to lunch, sometimes lighter options"
+    examples: ["salads", "tacos", "stir-fries"]
+    protein_focus: ["legumes", "tofu", "tempeh"]
+  
+  snacks:
+    healthy_options: ["peanut_butter_bombs", "dates_with_walnuts", "apples_with_nut_butter", "smoothies", "vegan_energy_bites"]
+    occasional_treats: ["vegan_cinnamon_rolls", "vegan_cookies", "desserts"]
+
+food_preferences:
+  flavors: ["garlicky", "umami", "savory", "tangy"]
+  spices: ["cumin", "paprika", "oregano", "thyme", "curry_powder"]
+  avoids: ["spicy_food", "chili"]
+  
+  staples:
+    grains: ["oats", "brown_rice", "quinoa", "whole_wheat_pasta"]
+    proteins: ["tofu", "tempeh", "lentils", "textured_soy_protein", "soy_protein_isolate"]
+    legumes: ["black_beans", "white_beans", "chickpeas"]
+    vegetables: ["broccoli", "spinach", "carrots", "beets", "sweet_potatoes", "frozen_mixed_vegetables"]
+    fruits: ["bananas", "apples", "frozen_berries", "dates"]
+    healthy_fats: ["avocado", "almond_butter", "tahini", "sunflower_seeds", "pumpkin_seeds"]
+    condiments: ["nutritional_yeast", "olive_oil", "balsamic_vinegar", "tamari", "dijon_mustard", "apple_cider_vinegar"]
+
+lifestyle:
+  exercise:
+    activities: ["pilates", "walking", "strength_training"]
+    frequency: "daily"
+    duration: "varies"
+  
+  alcohol: "rarely, only in social situations"
+  sleep: "prioritizes_good_sleep_hygiene"
+  
+  inflammation_management:
+    anti_inflammatory_focus: true
+    includes: ["berries", "leafy_greens", "nuts", "seeds", "whole_grains", "healthy_fats"]
+    limits: ["processed_foods", "refined_sugars", "fried_foods"]
+    occasional_indulgences: ["vegan_takeout", "vegan_cheese_dishes"]
+    hydration_goal: "2L of water daily"
+
+health_insights:
+  gut_health:
+    dietary_approach: "Consumes 30+ different whole food plants weekly for microbiome diversity"
+    fermented_foods: ["sauerkraut", "kombucha"]
+    notes: "Focus on fiber-rich and prebiotic foods"
+  
+  energy_levels:
+    observations:
+      - "Improved energy and reduced sluggishness with whole food meals"
+      - "Faster recovery when maintaining clean, nutrient-dense diet"
+  
+  hormonal_health:
+    menstrual_cycle_observations:
+      - "Lighter period symptoms with consistent whole food diet"
+      - "Regular exercise contributes to better hormonal balance"
+  
+  sleep:
+    duration: "7-8 hours nightly"
+    habits: "Good sleep hygiene practices maintained"
+    notes: "Prioritizes consistent sleep schedule"
+
+system_prompt: |
+  You are a knowledgeable and supportive Vegan Nutritionist Assistant. Your role is to help users with their plant-based nutrition journey in a kind, encouraging, and non-judgmental way.
+  
+  When responding to nutrition-related questions:
+  - Be positive and uplifting in your tone
+  - Provide clear, evidence-based information
+  - Offer practical, actionable advice
+  - Be mindful of the user's dietary preferences and restrictions
+  - When discussing meal plans or nutrition, consider their macronutrient and micronutrient needs
+  - If they ask about their meal history or nutrition data, help them understand patterns and suggest improvements
+  - Always maintain a supportive and motivational tone, celebrating their progress and efforts
+  
+  For any data-related questions, you can generate SQL queries to analyze their nutrition data from the database. The main tables include:
+  - meals (id, date, time, meal_type, meal_name, meal_source, food_description, calories, protein, carbs, fats, fiber, and various micronutrients)
+  
+  Example queries you might use:
+  - Get today's meals: SELECT * FROM meals WHERE date = CURRENT_DATE ORDER BY time
+  - Get weekly protein average: SELECT AVG(protein) FROM meals WHERE date >= date('now', '-7 days')
+  - Find top protein sources: SELECT meal_name, protein FROM meals WHERE protein > 0 ORDER BY protein DESC LIMIT 5
+
+  Remember to always be kind, patient, and supportive in your responses, and focus on helping the user make sustainable, healthy choices.

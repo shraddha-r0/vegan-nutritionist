@@ -1,0 +1,234 @@
+# Database Schema for Vegan Nutritionist
+# This file defines the structure of the meals table for LLM reference
+
+# Table Name: meals
+table: "meals"
+description: "Stores detailed nutritional information about meals and food items"
+
+# Column Definitions
+columns:
+  - name: "date"
+    type: "DATE"
+    description: "The date when the meal was consumed"
+    example: "2024-12-09"
+    required: true
+
+  - name: "time"
+    type: "TIME"
+    description: "The time when the meal was consumed"
+    example: "09:00:00"
+    required: true
+
+  - name: "meal_type"
+    type: "VARCHAR"
+    description: "Type of meal"
+    example: "Breakfast"
+    allowed_values: ["Breakfast", "Lunch", "Dinner", "Snack", "Drink"]
+    required: true
+
+  - name: "meal_name"
+    type: "VARCHAR"
+    description: "Name or description of the meal"
+    example: "Oats with Chia Seeds"
+    required: true
+
+  - name: "meal_source"
+    type: "VARCHAR"
+    description: "Source of the meal (e.g., restaurant, homemade)"
+    example: "Homemade"
+    required: false
+
+  - name: "food_description"
+    type: "TEXT"
+    description: "Detailed description of food items in the meal"
+    example: "60g oats, 1 tbsp chia seeds, 100ml NotMilk, 2 tbsp almond butter"
+    required: false
+
+  - name: "calories"
+    type: "FLOAT"
+    description: "Total calories in kcal"
+    unit: "kcal"
+    example: 650.0
+    required: false
+
+  - name: "carbohydrates"
+    type: "FLOAT"
+    description: "Carbohydrates content"
+    unit: "g"
+    example: 57.0
+    required: false
+
+  - name: "protein"
+    type: "FLOAT"
+    description: "Protein content"
+    unit: "g"
+    example: 18.0
+    required: false
+
+  - name: "fats"
+    type: "FLOAT"
+    description: "Fat content"
+    unit: "g"
+    example: 36.0
+    required: false
+
+  - name: "fiber"
+    type: "FLOAT"
+    description: "Dietary fiber content"
+    unit: "g"
+    example: 12.0
+    required: false
+
+# Micronutrients (all optional)
+  - name: "iron"
+    type: "FLOAT"
+    description: "Iron content"
+    unit: "mg"
+    example: 4.0
+
+  - name: "calcium"
+    type: "FLOAT"
+    description: "Calcium content"
+    unit: "mg"
+    example: 240.0
+
+  - name: "zinc"
+    type: "FLOAT"
+    description: "Zinc content"
+    unit: "mg"
+    example: 1.5
+
+  - name: "magnesium"
+    type: "FLOAT"
+    description: "Magnesium content"
+    unit: "mg"
+    example: 120.0
+
+# B Vitamins
+  - name: "b1"
+    type: "FLOAT"
+    description: "Vitamin B1 (Thiamine)"
+    unit: "mg"
+    example: 0.5
+
+  - name: "b2"
+    type: "FLOAT"
+    description: "Vitamin B2 (Riboflavin)"
+    unit: "mg"
+    example: 0.3
+
+  - name: "b3"
+    type: "FLOAT"
+    description: "Vitamin B3 (Niacin)"
+    unit: "mg"
+    example: 2.0
+
+  - name: "b5"
+    type: "FLOAT"
+    description: "Vitamin B5 (Pantothenic Acid)"
+    unit: "mg"
+    example: 1.0
+
+  - name: "b6"
+    type: "FLOAT"
+    description: "Vitamin B6"
+    unit: "mg"
+    example: 0.5
+
+  - name: "b9"
+    type: "FLOAT"
+    description: "Vitamin B9 (Folate)"
+    unit: "µg"
+    example: 100.0
+
+  - name: "b12"
+    type: "FLOAT"
+    description: "Vitamin B12"
+    unit: "µg"
+    example: 1.5
+
+# Other Vitamins and Nutrients
+  - name: "omega3"
+    type: "FLOAT"
+    description: "Omega-3 fatty acids"
+    unit: "g"
+    example: 2.0
+
+  - name: "vitamin_a"
+    type: "FLOAT"
+    description: "Vitamin A"
+    unit: "µg"
+    example: 0.0
+
+  - name: "vitamin_c"
+    type: "FLOAT"
+    description: "Vitamin C"
+    unit: "mg"
+    example: 0.0
+
+  - name: "vitamin_e"
+    type: "FLOAT"
+    description: "Vitamin E"
+    unit: "mg"
+    example: 7.0
+
+  - name: "vitamin_k"
+    type: "FLOAT"
+    description: "Vitamin K"
+    unit: "µg"
+    example: 2.0
+
+  - name: "notes"
+    type: "TEXT"
+    description: "Additional notes about the meal"
+    example: "Hearty breakfast with healthy fats and protein"
+    required: false
+
+# Example Queries
+example_queries:
+  - name: "Get Today's Meals"
+    description: "Retrieve all meals for the current day"
+    sql: |
+      SELECT * 
+      FROM meals 
+      WHERE date = CURRENT_DATE 
+      ORDER BY time;
+
+  - name: "Daily Macronutrient Summary"
+    description: "Calculate total macronutrients for each day"
+    sql: |
+      SELECT 
+          date,
+          ROUND(SUM(calories), 0) as total_calories,
+          ROUND(SUM(protein), 1) as total_protein_g,
+          ROUND(SUM(carbohydrates), 1) as total_carbs_g,
+          ROUND(SUM(fats), 1) as total_fats_g
+      FROM meals
+      GROUP BY date
+      ORDER BY date DESC;
+
+  - name: "Top Protein Sources"
+    description: "Find meals with highest protein content"
+    sql: |
+      SELECT 
+          date,
+          meal_type,
+          meal_name,
+          protein,
+          ROUND((protein * 4.0 / NULLIF(calories, 0)) * 100, 1) as protein_percentage
+      FROM meals
+      WHERE protein > 15
+      ORDER BY protein_percentage DESC;
+
+  - name: "Weekly Micronutrient Averages"
+    description: "Calculate average micronutrient intake by week"
+    sql: |
+      SELECT 
+          date_trunc('week', date) as week_start,
+          ROUND(AVG(iron), 1) as avg_iron_mg,
+          ROUND(AVG(calcium), 1) as avg_calcium_mg,
+          ROUND(AVG(vitamin_c), 1) as avg_vitamin_c_mg,
+          ROUND(AVG(omega3), 1) as avg_omega3_g
+      FROM meals
+      GROUP BY week_start
+      ORDER BY week_start DESC;
