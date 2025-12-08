@@ -1,8 +1,9 @@
-from datetime import date
-from typing import List
+from datetime import date, datetime
+from typing import List, Dict, Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from .. import crud, schemas
 from ..db import get_db
@@ -204,3 +205,42 @@ def read_meal(meal_id: int, db: Session = Depends(get_db)):
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found")
     return meal
+
+
+@router.post(
+    "/query",
+    response_model=List[Dict[str, Any]],
+    summary="Execute a raw SQL query (for development only)",
+    include_in_schema=False  # Hide from OpenAPI docs for security
+)
+async def execute_query(
+    query_data: Dict[str, str],
+    db: Session = Depends(get_db)
+):
+    """
+    Execute a raw SQL query (for development only)
+    
+    WARNING: This is a security risk in production! Only enable in development.
+    """
+    query = query_data.get("query")
+    if not query:
+        raise HTTPException(status_code=400, detail="No query provided")
+    
+    try:
+        # Basic safety check - only allow SELECT queries in this example
+        # In production, implement proper security measures!
+        if not query.strip().upper().startswith(('SELECT', 'WITH')):
+            raise HTTPException(
+                status_code=400,
+                detail="Only SELECT and WITH queries are allowed for security reasons"
+            )
+            
+        result = db.execute(text(query))
+        
+        if result.returns_rows:
+            # Convert result to list of dicts
+            return [dict(row) for row in result.mappings()]
+        return [{"status": "success", "rows_affected": result.rowcount}]
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
