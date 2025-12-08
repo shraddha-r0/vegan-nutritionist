@@ -6,13 +6,15 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Import configuration
+from config import Config
+
+# Validate configuration
+Config.validate()
 
 # Configuration
-FASTAPI_URL = "http://localhost:8000"  # Update if your FastAPI server is running elsewhere
+FASTAPI_URL = Config.FASTAPI_URL
 
 # Initialize session state for chat history
 if "messages" not in st.session_state:
@@ -42,27 +44,18 @@ with st.sidebar:
     
     # API Configuration
     st.subheader("API Settings")
-    openai_api_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        help="Get your API key from https://platform.openai.com/account/api-keys"
-    )
+    st.info("API key is configured in .env file")
     
     # Model Configuration
     st.subheader("Model Settings")
-    model_name = st.selectbox(
-        "Model",
-        ["gpt-3.5-turbo", "gpt-4"],
-        index=0,
-        help="Choose the OpenAI model to use"
-    )
+    st.info(f"Using model: {Config.MODEL_NAME}")
     
     # Temperature slider for creativity
     temperature = st.slider(
         "Creativity",
         min_value=0.0,
         max_value=1.0,
-        value=0.7,
+        value=Config.MODEL_TEMPERATURE,
         step=0.1,
         help="Higher values make the output more random, lower values more deterministic"
     )
@@ -103,7 +96,7 @@ def call_fastapi_endpoint(endpoint: str, method: str = "get", data: dict = None)
 
 def generate_sql(natural_language: str, schema_info: str) -> str:
     """
-    Generate SQL from natural language using OpenAI's API
+    Generate SQL from natural language using the Hugging Face model
     
     Args:
         natural_language: The user's query in natural language
@@ -112,45 +105,87 @@ def generate_sql(natural_language: str, schema_info: str) -> str:
     Returns:
         str: Generated SQL query
     """
-    if not openai_api_key:
-        st.error("Please enter your OpenAI API key in the sidebar")
-        return ""
-        
-    from openai import OpenAI
+    import requests
+    from config import Config
     
-    client = OpenAI(api_key=openai_api_key)
-    
-    prompt = f"""
-    You are a helpful AI assistant that converts natural language to SQL.
+    # Prepare the prompt
+    prompt = f"""You are a senior SQL developer. Convert the following natural language query into SQL.
     
     Database schema:
     {schema_info}
     
-    Important notes:
+    Rules:
+    - Only return the SQL query, no explanations
     - Use SQLite syntax
-    - Always use parameterized queries
-    - Only query tables and columns that exist in the schema
-    - For dates, use the 'date' function for comparisons
-    - For times, use the 'time' function for comparisons
+    - Use proper date and time functions
+    - For date comparisons, use the date() function
+    - For time comparisons, use the time() function
+    - For text searches, use the LIKE operator with % wildcards
+    - For numeric comparisons, use the appropriate operators
+    - For multiple conditions, use AND/OR with proper parentheses
+    - For sorting, use the ORDER BY clause
+    - For limiting results, use the LIMIT clause
+    - For counting, use the COUNT() function
+    - For summing, use the SUM() function
+    - For averaging, use the AVG() function
+    - For minimum/maximum, use MIN()/MAX() functions
+    - For grouping, use the GROUP BY clause
+    - For filtering groups, use the HAVING clause
+    - For complex queries, use CTEs (WITH clause)
+    - For date arithmetic, use the appropriate functions
+    - For string manipulation, use the appropriate functions
+    - For NULL handling, use the COALESCE() or IFNULL() functions
     
-    Convert the following natural language query to SQL:
-    ""{natural_language}""
+    Natural language query: {natural_language}
     
-    Return ONLY the SQL query, nothing else. Do not include any explanations or markdown formatting.
-    """
+    SQL Query:"""
     
     try:
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant that converts natural language to SQL."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=temperature,
+        # Call the Hugging Face Inference API
+        headers = {
+            "Authorization": f"Bearer {Config.HUGGINGFACE_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        
+        payload = {
+            "inputs": prompt,
+            "parameters": {
+                "temperature": Config.MODEL_TEMPERATURE,
+                "max_new_tokens": Config.MAX_TOKENS,
+                "top_p": Config.TOP_P,
+                "top_k": Config.TOP_K,
+                "repetition_penalty": Config.REPETITION_PENALTY,
+                "return_full_text": False
+            }
+        }
+        
+        response = requests.post(
+            Config.get_model_endpoint(),
+            headers=headers,
+            json=payload
         )
-        return response.choices[0].message.content.strip()
+        
+        response.raise_for_status()
+        result = response.json()
+        
+        # Extract the generated text from the response
+        if isinstance(result, list) and len(result) > 0 and 'generated_text' in result[0]:
+            sql_query = result[0]['generated_text'].strip()
+        else:
+            raise ValueError("Unexpected API response format")
+        
+        # Clean up the SQL query
+        sql_query = sql_query.replace("```sql", "").replace("```", "").strip()
+        
+        # Log the generated SQL for debugging
+        st.sidebar.code(f"Generated SQL:\n{sql_query}", language="sql")
+        
+        return sql_query
+        
     except Exception as e:
         st.error(f"Error generating SQL: {str(e)}")
+        if 'response' in locals():
+            st.error(f"API Response: {response.text}")
         return ""
 
 def handle_natural_language_query(query: str) -> str:
