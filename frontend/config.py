@@ -11,25 +11,25 @@ class Config:
     
     # API Configuration
     FASTAPI_URL = os.getenv("FASTAPI_URL", "http://localhost:8000")
+    HUGGINGFACE_BASE_URL = "https://router.huggingface.co/v1"
     
     # Model Parameters
     MODEL_TEMPERATURE = 0.7
     MAX_TOKENS = 1000
     TOP_P = 0.95
-    TOP_K = 50
-    REPETITION_PENALTY = 1.1
     
     # App Configuration
     APP_TITLE = "🍽️ Vegan Nutritionist Assistant"
     PAGE_ICON = "🥗"
     
-    # API Endpoints
-    HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models"
-    
     @classmethod
-    def get_model_endpoint(cls):
-        """Get the full model endpoint URL."""
-        return f"{cls.HUGGINGFACE_API_URL}/{cls.MODEL_NAME}"
+    def get_openai_client(cls):
+        """Get an OpenAI client configured for Hugging Face router."""
+        from openai import OpenAI
+        return OpenAI(
+            base_url=cls.HUGGINGFACE_BASE_URL,
+            api_key=cls.HUGGINGFACE_API_KEY
+        )
     
     @classmethod
     def validate(cls):
