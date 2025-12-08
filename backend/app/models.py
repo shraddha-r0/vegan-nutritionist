@@ -1,6 +1,6 @@
 # backend/app/models.py
 
-from sqlalchemy import Column, Integer, String, Float, Text
+from sqlalchemy import Column, Integer, String, Float, Text, Date, Time
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -9,8 +9,8 @@ class Meal(Base):
     __tablename__ = "meals"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    date = Column(String)
-    time = Column(String)
+    date = Column(Date)
+    time = Column(Time)
     meal_type = Column(String)
     meal_name = Column(String)
     meal_source = Column(String)
