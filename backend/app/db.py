@@ -12,7 +12,7 @@ DB_URL = f"sqlite:///{DB_PATH}"
 # Create the engine
 engine = create_engine(
     DB_URL,
-    connect_args={"check_same_thread": False}  # Needed for SQLite + FastAPI
+    connect_args={"check_same_thread": False}  # Allow reuse across threads (e.g., Streamlit)
 )
 
 # Create session factory
@@ -23,13 +23,10 @@ def init_db():
     """Creates all tables if they do not exist."""
     Base.metadata.create_all(bind=engine)
 
-# Yield a database session for request lifecycles.
-# Input: none (FastAPI injects); Output: generator yielding a SQLAlchemy Session.
+# Yield a database session for scripts or background jobs that still need ORM access.
 def get_db():
     """
-    Dependency for FastAPI routes.
-    Example:
-        db = next(get_db())
+    Simple generator that mirrors the old FastAPI dependency, kept for utility scripts.
     """
     db = SessionLocal()
     try:

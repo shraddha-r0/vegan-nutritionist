@@ -55,6 +55,7 @@ This prototype is intentionally minimal:
 - **No over-engineered architecture**  
 - **No voice or image input (yet)**  
 - **No multi-agent systems**  
+- **Direct text-to-SQL path (no REST API)** — the Streamlit client prompts the LLM for SQLite queries and executes them locally for grounded answers.
 
 Just clean structured data, thoughtful prompt engineering, and clear reasoning about when to use (or *not* use) different GenAI components.
 
