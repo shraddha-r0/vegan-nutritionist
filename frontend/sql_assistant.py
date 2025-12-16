@@ -6,7 +6,6 @@ import sqlite3
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
-import yaml
 from openai import OpenAIError
 
 from config import Config
@@ -46,8 +45,13 @@ class LLMSQLAssistant:
         Config.validate()
         self.client = Config.get_openai_client()
         self.schema = Config.load_database_schema()
+        self.schema_yaml = Config.load_database_schema_text()
         self.profile = Config.load_nutrition_profile()
-        self.profile_context = self._build_profile_context()
+        self.profile_yaml = Config.load_nutrition_profile_text()
+        self.profile_system_prompt = self.profile.get(
+            "system_prompt",
+            "You are a careful vegan nutrition analyst.",
+        )
         self.schema_context = self._build_schema_context()
 
     def answer_question(self, question: str) -> AssistantResponse:
@@ -127,7 +131,7 @@ class LLMSQLAssistant:
     def _summarize_answer(self, question: str, plan: SQLPlan, rows: List[Dict[str, Any]]) -> str:
         """Send the SQL output back through the LLM for a grounded explanation."""
         system_prompt = (
-            self.profile.get("system_prompt", "You are a careful vegan nutrition analyst.")
+            self.profile_system_prompt
             + "\nAlways base your answers strictly on the data provided. "
               "If there is no relevant data, say so instead of guessing."
         )
@@ -139,7 +143,8 @@ class LLMSQLAssistant:
             f"SQL reasoning: {plan.reasoning}\n"
             f"Row count: {row_count}\n"
             f"Result sample (JSON):\n{result_preview}\n\n"
-            f"Nutrition profile context:\n{self.profile_context}\n"
+            "Nutrition profile (YAML):\n"
+            f"{self.profile_yaml}\n"
             "Write a concise, encouraging answer. Reference concrete numbers when possible."
         )
 
@@ -173,6 +178,10 @@ class LLMSQLAssistant:
             "3. Never modify data (no INSERT/UPDATE/DELETE).\n"
             "4. Use meaningful column aliases for aggregates.\n"
             f"{self.schema_context}\n"
+            "Full database schema (YAML) for reference:\n"
+            f"{self.schema_yaml}\n"
+            "Nutrition profile and system prompt (YAML):\n"
+            f"{self.profile_yaml}\n"
             "Example query patterns:\n"
             f"{sample_text}\n"
             "Respond with JSON only."
@@ -223,8 +232,3 @@ class LLMSQLAssistant:
             "Columns:\n"
             + "\n".join(f"- {line}" for line in column_lines)
         )
-
-    def _build_profile_context(self) -> str:
-        """Convert profile YAML to a compact string (excluding the system prompt)."""
-        profile_copy = {k: v for k, v in self.profile.items() if k != "system_prompt"}
-        return yaml.safe_dump(profile_copy, sort_keys=False, allow_unicode=True)

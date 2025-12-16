@@ -34,7 +34,7 @@ columns:
 
   - name: "meal_source"
     type: "VARCHAR"
-    description: "Source of the meal (e.g., restaurant, homemade)"
+    description: "Source of the meal (e.g., restaurant, homemade or takeout)"
     example: "Homemade"
     required: false
 

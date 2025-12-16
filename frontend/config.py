@@ -11,8 +11,9 @@ load_dotenv()
 
 class Config:
     # Hugging Face Configuration
-    HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-    MODEL_NAME = os.getenv("MODEL_NAME", "openai/gpt-oss-20b")
+    #HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
+    MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo") 
+    OPENAI_API_KEY= os.getenv("OPENAI_API_KEY")
     
     # Paths & Data Files
     FRONTEND_DIR = Path(__file__).resolve().parent
@@ -46,7 +47,7 @@ class Config:
     def validate(cls) -> bool:
         """Validate that all required environment variables and files are available."""
         if not cls.HUGGINGFACE_API_KEY:
-            raise ValueError("HUGGINGFACE_API_KEY environment variable is not set")
+            raise ValueError("OPENAI_API_KEY environment variable is not set")
         if not cls.DB_PATH.exists():
             raise FileNotFoundError(f"Database file missing at {cls.DB_PATH}")
         if not cls.SCHEMA_PATH.exists():
@@ -57,17 +58,27 @@ class Config:
 
     @classmethod
     @lru_cache(maxsize=1)
+    def load_database_schema_text(cls) -> str:
+        """Return the raw YAML string for the DB schema."""
+        return cls.SCHEMA_PATH.read_text(encoding="utf-8")
+
+    @classmethod
+    @lru_cache(maxsize=1)
     def load_database_schema(cls) -> Dict[str, Any]:
         """Load the YAML schema description used to guide SQL generation."""
-        with cls.SCHEMA_PATH.open("r", encoding="utf-8") as handle:
-            return yaml.safe_load(handle)
+        return yaml.safe_load(cls.load_database_schema_text())
+
+    @classmethod
+    @lru_cache(maxsize=1)
+    def load_nutrition_profile_text(cls) -> str:
+        """Return the raw YAML string for the nutrition profile."""
+        return cls.PROFILE_PATH.read_text(encoding="utf-8")
 
     @classmethod
     @lru_cache(maxsize=1)
     def load_nutrition_profile(cls) -> Dict[str, Any]:
         """Load the nutrition profile that feeds the assistant personality."""
-        with cls.PROFILE_PATH.open("r", encoding="utf-8") as handle:
-            return yaml.safe_load(handle)
+        return yaml.safe_load(cls.load_nutrition_profile_text())
 
     @classmethod
     def database_path(cls) -> Path:
