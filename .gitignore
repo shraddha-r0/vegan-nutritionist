@@ -207,7 +207,6 @@ marimo/_static/
 marimo/_lsp/
 __marimo__/
 
-#TODO List personal
-TODO.md
-
+# Database
+backend/data/nutrition.db
 backend/data/nutrition.db

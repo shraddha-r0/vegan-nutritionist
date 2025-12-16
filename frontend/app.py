@@ -2,14 +2,16 @@ import json
 import pandas as pd
 import streamlit as st
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from config import Config
 from openai import OpenAI
 from sql_assistant import LLMSQLAssistant, AssistantResponse
+from meal_logger import MealLogger
 
-# Initialize the OpenAI client
+# Initialize clients/helpers
 client = OpenAI(api_key=Config.OPENAI_API_KEY)
 sql_assistant = LLMSQLAssistant()
+meal_logger = MealLogger()
 
 # Constants
 CHAT_HISTORY_KEY = "chat_history"
@@ -79,30 +81,50 @@ def get_chat_completion(messages: List[Dict[str, str]], temperature: float = 0.7
         st.error(f"Error getting chat completion: {str(e)}")
         return "I'm sorry, I encountered an error processing your request."
 
-def should_use_sql(question: str) -> bool:
-    """Determine if a question should be routed to the SQL assistant."""
-    classification_prompt = (
-        "Decide whether the user message needs data from the meals database.\n"
-        "Respond ONLY with 'SQL' if answering requires querying past or present meals, "
-        "macros, or logs. Otherwise respond 'GENERAL'.\n"
-        "Examples needing SQL: questions about what was eaten, nutrient totals over specific dates, "
-        "comparisons based on logged meals.\n"
-        "Examples not needing SQL: general nutrition advice, hypothetical questions, cooking tips."
+def classify_user_request(message: str) -> str:
+    """Determine if the user wants to log a meal, query past meals, or ask a general question."""
+    if not message.strip():
+        return "GENERAL"
+
+    prompt = (
+        "You are an intent classifier for a vegan nutrition assistant. "
+        "Return exactly one label:\n"
+        "- LOG: the user is describing food they ate or explicitly wants to add a meal to the log.\n"
+        "- QUERY: the user is asking about previously logged meals, totals, comparisons, or needs SQL-style analysis.\n"
+        "- GENERAL: anything else such as general advice, meal ideas, or non-database questions.\n"
+        "Prefer LOG only when the user clearly provides new meal information to record. "
+        "Prefer QUERY when they ask questions like 'What did I eat yesterday?' or 'How many grams of protein last week?'."
     )
     try:
         response = client.chat.completions.create(
             model=Config.MODEL_NAME,
             messages=[
-                {"role": "system", "content": classification_prompt},
-                {"role": "user", "content": question.strip()},
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": message.strip()},
             ],
             temperature=0,
             max_tokens=5,
         )
-        decision = response.choices[0].message.content.strip().lower()
-        return "sql" in decision
+        decision = response.choices[0].message.content.strip().upper()
+        if "LOG" in decision:
+            return "LOG"
+        if "QUERY" in decision or "SQL" in decision:
+            return "QUERY"
+        return "GENERAL"
     except Exception:
-        return False
+        return "GENERAL"
+
+
+def is_meal_confirmation(text: str) -> bool:
+    normalized = text.strip().lower()
+    confirm_keywords = ["confirm", "save", "looks good", "log it", "ship it"]
+    return any(keyword in normalized for keyword in confirm_keywords)
+
+
+def is_meal_cancellation(text: str) -> bool:
+    normalized = text.strip().lower()
+    cancel_keywords = ["cancel", "stop", "don't log", "discard", "nope"]
+    return any(keyword in normalized for keyword in cancel_keywords)
 
 def handle_sql_question(question: str) -> AssistantResponse:
     """Generate SQL answer and return structured response."""
@@ -140,6 +162,11 @@ def render_chat():
                     st.markdown(message["content"])
                     if message.get("metadata"):
                         metadata = message["metadata"]
+                        meal_entry = metadata.get("meal_entry")
+                        if meal_entry:
+                            with st.expander("Meal Entry Details"):
+                                df = pd.DataFrame([meal_entry])
+                                st.dataframe(df, use_container_width=True)
                         sql_present = isinstance(metadata, dict) and (
                             metadata.get("sql") or metadata.get("rows")
                         )
@@ -155,14 +182,18 @@ def render_chat():
                                         st.dataframe(df, use_container_width=True)
                                 extras = {
                                     k: v for k, v in metadata.items()
-                                    if k not in {"sql", "rows"}
+                                    if k not in {"sql", "rows", "meal_entry"}
                                 }
                                 if extras:
                                     st.markdown("**Additional Details**")
                                     st.json(extras)
                         else:
-                            with st.expander("Details"):
-                                st.json(metadata)
+                            remaining = {
+                                k: v for k, v in metadata.items() if k != "meal_entry"
+                            }
+                            if remaining:
+                                with st.expander("Details"):
+                                    st.json(remaining)
         if st.session_state.generating_response:
             with st.chat_message("assistant"):
                 assistant_placeholder = st.empty()
@@ -174,9 +205,87 @@ def render_chat():
             None,
         )
         question_text = latest_user_message["content"] if latest_user_message else ""
-        use_sql = bool(question_text and should_use_sql(question_text))
+        pending_meal = st.session_state.get("pending_meal_entry")
 
-        if use_sql:
+        def complete_response(text: str, metadata: Optional[Dict[str, Any]] = None):
+            if assistant_placeholder is not None:
+                assistant_placeholder.markdown(text)
+            else:
+                with st.chat_message("assistant"):
+                    st.markdown(text)
+            assistant_message = {
+                "role": "assistant",
+                "content": text,
+                "timestamp": datetime.now().isoformat()
+            }
+            if metadata:
+                assistant_message["metadata"] = metadata
+            st.session_state.messages.append(assistant_message)
+            st.session_state.generating_response = False
+            _save_chat_history()
+            st.rerun()
+
+        if pending_meal:
+            stage = pending_meal.get("stage")
+            if stage == "awaiting_details":
+                if is_meal_cancellation(question_text):
+                    st.session_state.pop("pending_meal_entry", None)
+                    complete_response("Okay, I won't log that meal.")
+                    return
+                result = meal_logger.build_entry(
+                    pending_meal.get("description", ""),
+                    question_text
+                )
+                if result.error or not result.row:
+                    complete_response(
+                        f"I'm still missing some details: {result.error or 'Please provide amounts and timing.'}"
+                    )
+                else:
+                    st.session_state.pending_meal_entry = {
+                        "stage": "awaiting_confirmation",
+                        "description": pending_meal.get("description", ""),
+                        "entry": result.row,
+                        "summary": result.summary,
+                    }
+                    preview_msg = (
+                        f"{result.summary}\n\n"
+                        "Please review the meal details. Reply **confirm meal entry** to save it "
+                        "or **cancel meal entry** to discard."
+                    )
+                    complete_response(preview_msg, metadata={"meal_entry": result.row})
+            elif stage == "awaiting_confirmation":
+                if is_meal_confirmation(question_text):
+                    entry = pending_meal.get("entry") or {}
+                    try:
+                        meal_logger.insert_entry(entry)
+                    except Exception as exc:
+                        complete_response(f"I couldn't save that meal: {exc}")
+                        return
+                    st.session_state.pop("pending_meal_entry", None)
+                    confirmation_text = (
+                        "Meal saved to your log! Let me know if you'd like to add anything else."
+                    )
+                    complete_response(confirmation_text, metadata={"meal_entry": entry})
+                elif is_meal_cancellation(question_text):
+                    st.session_state.pop("pending_meal_entry", None)
+                    complete_response("No problem—I've discarded that meal entry.")
+                else:
+                    complete_response(
+                        "I still need a clear **confirm meal entry** or **cancel meal entry** before proceeding."
+                    )
+            return
+
+        intent = classify_user_request(question_text) if question_text else "GENERAL"
+
+        if intent == "LOG":
+            st.session_state.pending_meal_entry = {
+                "stage": "awaiting_details",
+                "description": question_text,
+            }
+            complete_response(meal_logger.clarification_prompt())
+            return
+
+        if intent == "QUERY":
             sql_response = handle_sql_question(question_text)
             response_text = sql_response.message
             metadata: Dict[str, Any] = {}
@@ -203,23 +312,7 @@ def render_chat():
             response_text = get_chat_completion(api_messages)
             metadata = None
 
-        if assistant_placeholder is not None:
-            assistant_placeholder.markdown(response_text)
-        else:
-            with st.chat_message("assistant"):
-                st.markdown(response_text)
-        
-        assistant_message = {
-            "role": "assistant",
-            "content": response_text,
-            "timestamp": datetime.now().isoformat()
-        }
-        if metadata:
-            assistant_message["metadata"] = metadata
-        st.session_state.messages.append(assistant_message)
-        st.session_state.generating_response = False
-        _save_chat_history()
-        st.rerun()
+        complete_response(response_text, metadata)
 
     prompt = st.chat_input("Ask me about your meals, macros, or micronutrients...")
     
@@ -244,6 +337,7 @@ def render_sidebar():
             "content": "Chat history cleared. How can I help you today?",
             "timestamp": datetime.now().isoformat()
         }]
+        st.session_state.pop("pending_meal_entry", None)
         _save_chat_history()
         st.rerun()
     

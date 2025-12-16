@@ -4,6 +4,7 @@ import json
 import re
 import sqlite3
 from dataclasses import dataclass
+from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from openai import OpenAIError
@@ -40,6 +41,20 @@ class LLMSQLAssistant:
     """Bridges user requests to SQLite queries using an LLM for text-to-SQL."""
 
     MAX_ROWS = 200
+    MONTH_LOOKUP = {
+        "january": 1,
+        "february": 2,
+        "march": 3,
+        "april": 4,
+        "may": 5,
+        "june": 6,
+        "july": 7,
+        "august": 8,
+        "september": 9,
+        "october": 10,
+        "november": 11,
+        "december": 12,
+    }
 
     def __init__(self):
         Config.validate()
@@ -57,7 +72,8 @@ class LLMSQLAssistant:
     def answer_question(self, question: str) -> AssistantResponse:
         """High-level helper that produces SQL, runs it, and summarizes the result."""
         try:
-            plan = self._generate_sql_plan(question)
+            normalized_question = self._augment_question_with_dates(question)
+            plan = self._generate_sql_plan(normalized_question)
             rows = self._execute_sql(plan.sql)
             summary = self._summarize_answer(question, plan, rows)
             return AssistantResponse(
@@ -67,11 +83,31 @@ class LLMSQLAssistant:
                 reasoning=plan.reasoning,
                 confidence=plan.confidence,
             )
-        except (SQLGenerationError, SQLExecutionError) as exc:
-            return AssistantResponse(
-                message="I ran into an issue while analyzing your data. Please try rephrasing the request.",
-                error=str(exc),
+        except SQLGenerationError as exc:
+            return self._error_response(
+                "I couldn't translate that request into a safe SQL query. "
+                "Try asking about specific meals, dates, or nutrients.",
+                exc,
             )
+        except SQLExecutionError as exc:
+            return self._error_response(
+                "I tried running a SQL query but hit a database issue. "
+                "Please double-check the time range or wording and try again.",
+                exc,
+            )
+        except Exception as exc:  # pragma: no cover - safety net
+            return self._error_response(
+                "Something unexpected happened while looking up your meals.",
+                exc,
+            )
+
+    @staticmethod
+    def _error_response(message: str, exc: Exception) -> AssistantResponse:
+        """Build a consistent error payload with debugging context."""
+        return AssistantResponse(
+            message=message,
+            error=str(exc),
+        )
 
     def _generate_sql_plan(self, question: str) -> SQLPlan:
         """Use the LLM to convert a natural-language question into SQL."""
@@ -200,14 +236,93 @@ class LLMSQLAssistant:
 
     @staticmethod
     def _extract_json(content: str) -> Dict[str, Any]:
-        """Handle raw JSON or fenced code block JSON."""
+        """Handle raw JSON or fenced code block JSON with minor cleanup."""
+        cleaned = content.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?", "", cleaned, flags=re.IGNORECASE).strip()
+            if cleaned.endswith("```"):
+                cleaned = cleaned[:-3].strip()
+
+        def _loads(payload: str) -> Dict[str, Any]:
+            return json.loads(payload, strict=False)
+
         try:
-            return json.loads(content)
+            return _loads(cleaned)
         except json.JSONDecodeError:
-            match = re.search(r"\{.*\}", content, re.DOTALL)
+            match = re.search(r"\{.*\}", cleaned, re.DOTALL)
             if not match:
                 raise SQLGenerationError("Unable to parse SQL plan JSON.")
-            return json.loads(match.group(0))
+            return _loads(match.group(0))
+
+    def _augment_question_with_dates(self, question: str) -> str:
+        """Annotate natural language dates (yesterday, last week, Apr 2) with ISO dates."""
+        today = datetime.now().date()
+        text = question
+
+        def annotate_simple(keyword: str, computed: str) -> None:
+            nonlocal text
+            text = re.sub(
+                rf"\b{keyword}\b",
+                lambda match: f"{match.group(0)} ({computed})",
+                text,
+                flags=re.IGNORECASE,
+            )
+
+        annotate_simple("the day before yesterday", (today - timedelta(days=2)).strftime("%Y-%m-%d"))
+        annotate_simple("yesterday", (today - timedelta(days=1)).strftime("%Y-%m-%d"))
+        annotate_simple("today", today.strftime("%Y-%m-%d"))
+        annotate_simple("tomorrow", (today + timedelta(days=1)).strftime("%Y-%m-%d"))
+
+        def week_annotation(label: str, offset_weeks: int):
+            start = today - timedelta(days=today.weekday()) + timedelta(weeks=offset_weeks)
+            end = start + timedelta(days=6)
+            annotate_simple(label, f"{start.strftime('%Y-%m-%d')} to {end.strftime('%Y-%m-%d')}")
+
+        week_annotation("this week", 0)
+        week_annotation("last week", -1)
+        week_annotation("next week", 1)
+
+        def replace_day_month(match):
+            day = int(match.group("day"))
+            month_name = match.group("month")
+            year = match.group("year")
+            parsed = self._build_date_from_tokens(day, month_name, year)
+            if not parsed:
+                return match.group(0)
+            return f"{match.group(0)} ({parsed.strftime('%Y-%m-%d')})"
+
+        pattern_dm = (
+            r"\b(?P<day>\d{1,2})(?:st|nd|rd|th)?"
+            r"(?:\s+of)?\s+"
+            r"(?P<month>January|February|March|April|May|June|July|August|September|October|November|December)"
+            r"(?:\s+(?P<year>\d{4}))?\b"
+        )
+        pattern_md = (
+            r"\b(?P<month>January|February|March|April|May|June|July|August|September|October|November|December)"
+            r"\s+(?P<day>\d{1,2})(?:st|nd|rd|th)?"
+            r"(?:,\s*(?P<year>\d{4}))?\b"
+        )
+
+        text = re.sub(pattern_dm, replace_day_month, text, flags=re.IGNORECASE)
+        text = re.sub(pattern_md, replace_day_month, text, flags=re.IGNORECASE)
+        return text
+
+    def _build_date_from_tokens(self, day: int, month_name: str, year: Optional[str]) -> Optional[date]:
+        month = self.MONTH_LOOKUP.get(month_name.lower())
+        if not month:
+            return None
+        year_int = int(year) if year else datetime.now().year
+        try:
+            parsed = date(year_int, month, day)
+        except ValueError:
+            return None
+        # If no explicit year and date is more than 6 months in future, assume previous year
+        if not year and parsed - datetime.now().date() > timedelta(days=183):
+            try:
+                parsed = date(year_int - 1, month, day)
+            except ValueError:
+                return parsed
+        return parsed
 
     @staticmethod
     def _is_select_query(sql: str) -> bool:
