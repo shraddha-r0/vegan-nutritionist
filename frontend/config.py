@@ -10,10 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Hugging Face Configuration
-    #HUGGINGFACE_API_KEY = os.getenv("HUGGINGFACE_API_KEY")
-    MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo") 
-    OPENAI_API_KEY= os.getenv("OPENAI_API_KEY")
+    MODEL_NAME = os.getenv("MODEL_NAME", "gpt-3.5-turbo")
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     
     # Paths & Data Files
     FRONTEND_DIR = Path(__file__).resolve().parent
@@ -22,9 +20,6 @@ class Config:
     SCHEMA_PATH = FRONTEND_DIR / "config" / "database_schema.yaml"
     PROFILE_PATH = FRONTEND_DIR / "config" / "nutrition_profile.yaml"
 
-    # Model + API configuration
-    HUGGINGFACE_BASE_URL = "https://router.huggingface.co/v1"
-    
     # Model Parameters
     MODEL_TEMPERATURE = 0.7
     MAX_TOKENS = 1000
@@ -36,17 +31,14 @@ class Config:
     
     @classmethod
     def get_openai_client(cls):
-        """Get an OpenAI client configured for Hugging Face router."""
+        """Get an OpenAI client for the configured API key."""
         from openai import OpenAI
-        return OpenAI(
-            base_url=cls.HUGGINGFACE_BASE_URL,
-            api_key=cls.HUGGINGFACE_API_KEY
-        )
+        return OpenAI(api_key=cls.OPENAI_API_KEY)
     
     @classmethod
     def validate(cls) -> bool:
         """Validate that all required environment variables and files are available."""
-        if not cls.HUGGINGFACE_API_KEY:
+        if not cls.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY environment variable is not set")
         if not cls.DB_PATH.exists():
             raise FileNotFoundError(f"Database file missing at {cls.DB_PATH}")
