@@ -27,23 +27,16 @@ The long-term vision is a personal nutrition companion that understands your rou
 
 ---
 
-## 🧠 Core Features (MVP)
+## 🧠 Core Features (Current Build)
 
-### ⭐ Natural Language Meal Logging  
-Type a meal the way you would text a friend.  
-The system extracts the meal details and nutritional values automatically.
-
-### ⭐ Nutritional Recordkeeping  
-Each meal is stored with structured macro and micro nutrient values, making summaries easy and accurate.
-
-### ⭐ Weekly Nutrition Insights  
-The assistant can answer natural questions like:  
-“Show me my total iron this week.”  
-“Did I eat enough protein the last three days?”  
-These are translated into SQL queries in the background.
-
-### ⭐ Grounded Micronutrient Context  
-A small metadata layer provides educational context — what nutrients do, vegan food sources, and recommended daily ranges — helping you interpret your intake meaningfully.
+| Capability | What it does |
+| --- | --- |
+| **LLM intent routing** | Every user message is classified (LOG / QUERY / GENERAL) so the assistant knows when to add a meal, analyze existing logs with SQL, or give advice. |
+| **Guided meal logging** | When you say “I ate…”, the assistant asks clarifying questions (portion sizes, timing, meal type), uses an LLM to estimate macros/micros, previews the row, and only writes to SQLite after you confirm. |
+| **SQL-backed meal insights** | Questions like “What did I eat for dinner on 1st April 2025?” or “How close was my protein last week?” trigger an LLM-to-SQL chain, run directly against `backend/data/nutrition.db`, and show both the query and tabular results. |
+| **Date understanding** | Natural phrases (“yesterday”, “last week”, “April 2nd”) are normalized to ISO ranges before SQL planning, keeping analytics grounded. |
+| **Nutrition profile grounding** | A rich YAML profile defines the user’s goals, preferences, and system prompt so general advice always stays on-brand for Shraddha. |
+| **Streamlit chat UI** | Scrollable chat history, sticky input, inline loaders, and expandable panels for SQL analysis or meal-entry previews. |
 
 ---
 
@@ -65,17 +58,14 @@ The project emphasizes **clarity over complexity** and showcases the ability to 
 
 ## 🚀 Future Extensions
 
-This MVP sets the foundation for richer features:
+With the foundations in place, the next steps are clear:
 
-- Voice-based logging  
-- Ingredient-level parsing  
-- Personalized nutrient targets  
-- Diet insights based on goals  
-- Vegan food substitutions  
-- Trend visualizations  
-- Health-aware recommendation engine  
-
-These will be added iteratively after the capstone.
+- Voice-based logging and mobile capture  
+- Ingredient-level parsing tied to official nutrition data sources  
+- Editing & deleting existing meals directly from the chat  
+- Personalized nutrient targets per training block or health goal  
+- Progress dashboards and habit nudges  
+- Integrations with wearable/health APIs  
 
 ---
 
